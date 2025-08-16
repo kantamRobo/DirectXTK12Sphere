@@ -26,8 +26,8 @@ using namespace DirectX;
 HRESULT DirectXTK12Spehere::CreateBuffer(DirectX::GraphicsMemory* graphicsMemory, DX::DeviceResources* deviceResources, int height, int width)
 {
 
-    constexpr int slices = 8;  // 経度方向の分割数
-    constexpr int stacks = 8;  // 緯度方向の分割数
+    constexpr int slices = 32;  // 経度方向の分割数
+    constexpr int stacks = 32;  // 緯度方向の分割数
     constexpr float radius = 1.0f;
 
     vertices.clear();
@@ -88,8 +88,8 @@ HRESULT DirectXTK12Spehere::CreateBuffer(DirectX::GraphicsMemory* graphicsMemory
 
     //(DirectXTK12Assimpで追加)
     m_vertexBufferView.BufferLocation = m_VertexBuffer.GpuAddress();
-    m_vertexBufferView.StrideInBytes = sizeof(DirectX::VertexPosition);
-    m_vertexBufferView.SizeInBytes = sizeof(DirectX::VertexPosition) * vertices.size();
+    m_vertexBufferView.StrideInBytes = sizeof(DirectX::VertexPositionNormal);
+    m_vertexBufferView.SizeInBytes = sizeof(DirectX::VertexPositionNormal) * vertices.size();
 
     m_indexBufferView.BufferLocation = m_IndexBuffer.GpuAddress();
     m_indexBufferView.Format = DXGI_FORMAT_R16_UINT;
@@ -105,7 +105,8 @@ HRESULT DirectXTK12Spehere::CreateBuffer(DirectX::GraphicsMemory* graphicsMemory
     DirectX::XMMATRIX viewMatrix = DirectX::XMMatrixLookAtLH(eye, focus, up);
 
     constexpr float fov = DirectX::XMConvertToRadians(45.0f);
-    float    aspect = (1200 / 600);
+    float aspect = float(width) / float(height);
+
     float    nearZ = 0.1f;
     float    farZ = 100.0f;
     DirectX::XMMATRIX projMatrix = DirectX::XMMatrixPerspectiveFovLH(fov, aspect, nearZ, farZ);

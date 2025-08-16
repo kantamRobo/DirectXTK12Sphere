@@ -1,33 +1,31 @@
+// VertexShader.hlsl
 struct VS_INPUT
 {
-    float4 pos : POSITION; // 頂点位置
-    float3 normal : NORMAL; // 法線
+    float3 pos : POSITION;
+    float3 normal : NORMAL;
 };
 
-cbuffer ConstantBuffer
+cbuffer ConstantBuffer : register(b0)
 {
-    float4x4 World; // ワールド変換行列
-    float4x4 View; // ビュー変換行列
-    float4x4 Projection; // 透視射影変換行列
+    row_major float4x4 World;
+    row_major float4x4 View;
+    row_major float4x4 Projection;
 };
 
 struct VS_OUTPUT
 {
-    float4 pos : SV_POSITION; // 出力のスクリーン座標
-    float3 normal : NORMAL; // 出力の法線
+    float4 pos : SV_POSITION;
+    float3 normal : NORMAL;
 };
 
 VS_OUTPUT main(VS_INPUT input)
 {
-    VS_OUTPUT output;
+    VS_OUTPUT o;
+    float4 p = float4(input.pos, 1.0f);
+    float4 wp = mul(World, p);
+    float4 vp = mul(View, wp);
+    o.pos = mul(Projection, vp);
 
-    // ワールド変換、ビュー変換、プロジェクション変換を適用
-    float4 worldPosition = mul(input.pos, World);
-    float4 viewPosition = mul(worldPosition, View);
-    output.pos = mul(viewPosition, Projection);
-    
-    output.normal = mul(float4(input.normal, 0.0f), World).xyz; // 法線もワールド座標系に変換
-   
-   
-    return output;
+    o.normal = mul((float3x3) World, input.normal);
+    return o;
 }
