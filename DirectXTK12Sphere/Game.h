@@ -6,7 +6,7 @@
 
 #include "DeviceResources.h"
 #include "StepTimer.h"
-
+#include "DirectXTK12Spehere.h"
 
 // A basic game implementation that creates a D3D12 device and
 // provides a game loop.
@@ -46,7 +46,8 @@ public:
     void GetDefaultSize( int& width, int& height ) const noexcept;
 
 private:
-
+    int m_width = 0;
+    int m_height = 0;
     void Update(DX::StepTimer const& timer);
     void Render();
 
@@ -54,7 +55,7 @@ private:
 
     void CreateDeviceDependentResources();
     void CreateWindowSizeDependentResources();
-
+    std::unique_ptr<DirectXTK12Spehere> m_model;
     // Device resources.
     std::unique_ptr<DX::DeviceResources>        m_deviceResources;
 
@@ -62,5 +63,5 @@ private:
     DX::StepTimer                               m_timer;
 
     // If using the DirectX Tool Kit for DX12, uncomment this line:
-    // std::unique_ptr<DirectX::GraphicsMemory> m_graphicsMemory;
+    std::unique_ptr<DirectX::GraphicsMemory> m_graphicsMemory;
 };
