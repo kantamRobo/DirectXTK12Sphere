@@ -11,17 +11,9 @@
 
 
 
-
-#include <DirectXMath.h>
 #include "pch.h"
 #include "DirectXTK12Spehere.h"
-#include <ResourceUploadBatch.h>
-#include <VertexTypes.h>
-#include <d3dcompiler.h>
-#include <d3dx12.h>
-#include <EffectPipelineStateDescription.h>
-#include <DirectXHelpers.h>
-#include <CommonStates.h>
+
 enum Descriptors
 {
     WindowsLogo,

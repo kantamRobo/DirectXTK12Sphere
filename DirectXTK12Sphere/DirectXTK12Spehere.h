@@ -1,8 +1,19 @@
 #pragma once
 
 #pragma once
+#include "pch.h"
 #include <DeviceResources.h>
 #include <DescriptorHeap.h>
+#include <ResourceUploadBatch.h>
+#include <VertexTypes.h>
+#include <d3dcompiler.h>
+#include <d3dx12.h>
+#include <EffectPipelineStateDescription.h>
+#include <DirectXHelpers.h>
+#include <CommonStates.h>
+
+#include <DirectXMath.h>
+
 struct SceneCB {
 	DirectX::XMFLOAT4X4 world;
 	DirectX::XMFLOAT4X4 view;
