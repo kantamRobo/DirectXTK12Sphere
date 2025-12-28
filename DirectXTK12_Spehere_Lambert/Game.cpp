@@ -10,6 +10,12 @@ extern void ExitGame() noexcept;
 using namespace DirectX;
 
 using Microsoft::WRL::ComPtr;
+ 
+extern void ExitGame() noexcept;
+
+using namespace DirectX;
+
+using Microsoft::WRL::ComPtr;
 
 Game::Game() noexcept(false)
 {
@@ -34,6 +40,8 @@ void Game::Initialize(HWND window, int width, int height)
 {
     m_deviceResources->SetWindow(window, width, height);
 
+    m_height = height;
+    m_width = width;
     m_deviceResources->CreateDeviceResources();
     CreateDeviceDependentResources();
 
@@ -53,9 +61,9 @@ void Game::Initialize(HWND window, int width, int height)
 void Game::Tick()
 {
     m_timer.Tick([&]()
-    {
-        Update(m_timer);
-    });
+        {
+            Update(m_timer);
+        });
 
     Render();
 }
@@ -92,7 +100,7 @@ void Game::Render()
     PIXBeginEvent(commandList, PIX_COLOR_DEFAULT, L"Render");
 
     // TODO: Add your rendering code here.
-
+    m_model->Draw(m_deviceResources.get());
     PIXEndEvent(commandList);
 
     // Show the new frame.
@@ -100,7 +108,7 @@ void Game::Render()
     m_deviceResources->Present();
 
     // If using the DirectX Tool Kit for DX12, uncomment this line:
-    // m_graphicsMemory->Commit(m_deviceResources->GetCommandQueue());
+    m_graphicsMemory->Commit(m_deviceResources->GetCommandQueue());
 
     PIXEndEvent();
 }
@@ -112,16 +120,16 @@ void Game::Clear()
     PIXBeginEvent(commandList, PIX_COLOR_DEFAULT, L"Clear");
 
     // Clear the views.
-    const auto rtvDescriptor = m_deviceResources->GetRenderTargetView();
-    const auto dsvDescriptor = m_deviceResources->GetDepthStencilView();
+    auto const rtvDescriptor = m_deviceResources->GetRenderTargetView();
+    auto const dsvDescriptor = m_deviceResources->GetDepthStencilView();
 
     commandList->OMSetRenderTargets(1, &rtvDescriptor, FALSE, &dsvDescriptor);
     commandList->ClearRenderTargetView(rtvDescriptor, Colors::CornflowerBlue, 0, nullptr);
     commandList->ClearDepthStencilView(dsvDescriptor, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
 
     // Set the viewport and scissor rect.
-    const auto viewport = m_deviceResources->GetScreenViewport();
-    const auto scissorRect = m_deviceResources->GetScissorRect();
+    auto const viewport = m_deviceResources->GetScreenViewport();
+    auto const scissorRect = m_deviceResources->GetScissorRect();
     commandList->RSSetViewports(1, &viewport);
     commandList->RSSetScissorRects(1, &scissorRect);
 
@@ -155,7 +163,7 @@ void Game::OnResuming()
 
 void Game::OnWindowMoved()
 {
-    const auto r = m_deviceResources->GetOutputSize();
+    auto const r = m_deviceResources->GetOutputSize();
     m_deviceResources->WindowSizeChanged(r.right, r.bottom);
 }
 
@@ -201,9 +209,13 @@ void Game::CreateDeviceDependentResources()
     }
 
     // If using the DirectX Tool Kit for DX12, uncomment this line:
-    // m_graphicsMemory = std::make_unique<GraphicsMemory>(device);
+    m_graphicsMemory = std::make_unique<GraphicsMemory>(device);
 
     // TODO: Initialize device dependent objects here (independent of window size).
+    m_model = std::make_unique<DirectXTK12Spehere_Lambert>();
+
+    m_model->CreateBuffer(m_graphicsMemory.get(), m_deviceResources.get(), m_height, m_width);
+
 }
 
 // Allocate all memory resources that change on a window SizeChanged event.
@@ -216,8 +228,8 @@ void Game::OnDeviceLost()
 {
     // TODO: Add Direct3D resource cleanup here.
 
-    // If using the DirectX Tool Kit for DX12, uncomment this line:
-    // m_graphicsMemory.reset();
+    //If using the DirectX Tool Kit for DX12, uncomment this line:
+    m_graphicsMemory.reset();
 }
 
 void Game::OnDeviceRestored()

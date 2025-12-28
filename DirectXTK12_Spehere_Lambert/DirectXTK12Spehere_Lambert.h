@@ -18,13 +18,15 @@ struct SceneCB {
 	DirectX::XMFLOAT4X4 view;
 	DirectX::XMFLOAT4X4 projection;
 };
+// 変更後 (推奨)
+// XMFLOAT4を使うことで、自動的に16バイトサイズになり、HLSLのアライメントと一致します。
+// ※w成分は使用しませんが、詰め物(パディング)として機能します。
 struct Lambert
 {
-	DirectX::XMFLOAT3 LightDir;       // ライトの進行方向 (例: 上から下なら 0, -1, 0)
-	DirectX::XMFLOAT3 LightColor;     // ライトの色と強さ (例: 1.0, 1.0, 1.0)
-	DirectX::XMFLOAT3 MaterialColor;  // 物体の色 (アルベド)
-	DirectX::XMFLOAT3 AmbientColor;   // 環境光 (真っ黒になるのを防ぐための底上げ用の光)
-
+	DirectX::XMFLOAT4 LightDir;       // 16 bytes
+	DirectX::XMFLOAT4 LightColor;     // 16 bytes
+	DirectX::XMFLOAT4 MaterialColor;  // 16 bytes
+	DirectX::XMFLOAT4 AmbientColor;   // 16 bytes
 };
 
 // Create root signature.
@@ -71,7 +73,8 @@ public:
 	//シェーダーの作成
 	Microsoft::WRL::ComPtr<ID3DBlob> vertexShader;//新規追加
 	Microsoft::WRL::ComPtr<ID3DBlob> pixelShader;//新規追加
-	DirectX::SharedGraphicsResource SceneCBResource;//新規追加
+ 	DirectX::SharedGraphicsResource SceneCBResource;//新規追加
+    DirectX::SharedGraphicsResource lambertCB;
 	DirectX::SharedGraphicsResource m_VertexBuffer;
 	DirectX::SharedGraphicsResource m_IndexBuffer;
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> m_pipelineState;//新規追加

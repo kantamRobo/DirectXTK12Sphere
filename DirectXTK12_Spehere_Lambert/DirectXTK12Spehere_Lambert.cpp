@@ -85,7 +85,9 @@ HRESULT DirectXTK12Spehere_Lambert::CreateBuffer(DirectX::GraphicsMemory* graphi
 
     m_IndexBuffer = graphicsMemory->Allocate(sizeof(unsigned short) * static_cast<int>(indices.size()));
     memcpy(m_IndexBuffer.Memory(), indices.data(), sizeof(unsigned short) * indices.size());
-
+    lambert.LightColor = DirectX::XMFLOAT4(1.0f, 1.0f, 1.0f,1.0f);    // ライトの色 (白)
+    lambert.MaterialColor = DirectX::XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f); // マテリアルの色 (赤)
+    lambert.AmbientColor = DirectX::XMFLOAT4(0.1f, 0.1f, 0.1f, 1.0f);  // 環境光 (弱めのグレー)
 
 
     //(DirectXTK12Assimpで追加)
@@ -117,9 +119,9 @@ HRESULT DirectXTK12Spehere_Lambert::CreateBuffer(DirectX::GraphicsMemory* graphi
     XMStoreFloat4x4(&cb.world, XMMatrixTranspose(worldMatrix));
     XMStoreFloat4x4(&cb.view, XMMatrixTranspose(viewMatrix));
     XMStoreFloat4x4(&cb.projection, XMMatrixTranspose(projMatrix));
-	auto lightDir = XMVector3Normalize(XMVectorSet(1.0f, -1.0f, 1.0f, 0.0f));
-    XMStoreFloat3(&lambert.LightDir, lightDir);
-	GraphicsResource lambertCB = graphicsMemory->AllocateConstant(lambert);
+	auto lightDir = XMVector3Normalize(XMVectorSet(10.0f, -1.0f, 1.0f, 0.0f));
+    XMStoreFloat4(&lambert.LightDir, lightDir);
+	lambertCB = graphicsMemory->AllocateConstant(lambert);
 
 
     //定数バッファの作成(DIrectXTK12Assimpで追加)
@@ -171,7 +173,7 @@ void  DirectXTK12Spehere_Lambert::Draw(const DX::DeviceResources* DR) {
 
     //2024/12/30/9:42
     commandList->SetGraphicsRootConstantBufferView(0, SceneCBResource.GpuAddress());
-
+	commandList->SetGraphicsRootConstantBufferView(1, lambertCB.GpuAddress());
     // パイプラインステート設定
     commandList->SetPipelineState(m_pipelineState.Get());
 
@@ -253,7 +255,7 @@ Microsoft::WRL::ComPtr<ID3D12PipelineState>  DirectXTK12Spehere_Lambert::CreateG
         D3D12_ROOT_SIGNATURE_FLAG_DENY_HULL_SHADER_ROOT_ACCESS;
 
     // Create root parameters and initialize first (constants)
-    CD3DX12_ROOT_PARAMETER rootParameters[1] = {};
+    CD3DX12_ROOT_PARAMETER rootParameters[2] = {};
     rootParameters[RootParameterIndex::SceneBuffer].InitAsConstantBufferView(0, 0, D3D12_SHADER_VISIBILITY_ALL);
     rootParameters[RootParameterIndex::LambertBuffer].InitAsConstantBufferView(1, 0, D3D12_SHADER_VISIBILITY_ALL);
 
