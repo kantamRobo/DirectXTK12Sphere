@@ -9,6 +9,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "DirectXTK12Sphere_Transform
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "DirectXTK12_Spehere_Lambert", "DirectXTK12_Spehere_Lambert\DirectXTK12_Spehere_Lambert.vcxproj", "{937F6D8A-FCDC-4F9B-A660-2A5A5F83AC59}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "DirectXTK12MetalicReflection", "DirectXTK12MetalicReflection\DirectXTK12MetalicReflection.vcxproj", "{5AC358E6-8E01-46B9-8BA3-5C3D10049AE4}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -41,6 +43,14 @@ Global
 		{937F6D8A-FCDC-4F9B-A660-2A5A5F83AC59}.Release|x64.Build.0 = Release|x64
 		{937F6D8A-FCDC-4F9B-A660-2A5A5F83AC59}.Release|x86.ActiveCfg = Release|Win32
 		{937F6D8A-FCDC-4F9B-A660-2A5A5F83AC59}.Release|x86.Build.0 = Release|Win32
+		{5AC358E6-8E01-46B9-8BA3-5C3D10049AE4}.Debug|x64.ActiveCfg = Debug|x64
+		{5AC358E6-8E01-46B9-8BA3-5C3D10049AE4}.Debug|x64.Build.0 = Debug|x64
+		{5AC358E6-8E01-46B9-8BA3-5C3D10049AE4}.Debug|x86.ActiveCfg = Debug|Win32
+		{5AC358E6-8E01-46B9-8BA3-5C3D10049AE4}.Debug|x86.Build.0 = Debug|Win32
+		{5AC358E6-8E01-46B9-8BA3-5C3D10049AE4}.Release|x64.ActiveCfg = Release|x64
+		{5AC358E6-8E01-46B9-8BA3-5C3D10049AE4}.Release|x64.Build.0 = Release|x64
+		{5AC358E6-8E01-46B9-8BA3-5C3D10049AE4}.Release|x86.ActiveCfg = Release|Win32
+		{5AC358E6-8E01-46B9-8BA3-5C3D10049AE4}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
