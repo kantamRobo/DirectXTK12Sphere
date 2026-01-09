@@ -145,6 +145,12 @@ HRESULT DirectXTK12MetalicReflection::CreateBuffer(DirectX::GraphicsMemory* grap
 //(DIrectXTK12Assimpで追加)
 void  DirectXTK12MetalicReflection::Draw(const DX::DeviceResources* DR) {
 
+    // --- 1. 定数バッファの更新 ---
+    MaterialConstants constants;
+    constants.CameraPos = m_cameraPos;  // 現在のカメラ位置
+    constants.AlbedoColor = DirectX::XMFLOAT3(1.0f, 0.76f, 0.33f); // 例: ゴールド
+    constants.Roughness = 0.2f;         // 少しツヤがある
+    constants.F0 = 1.0f;                // 金属なので高め
 
     DirectX::ResourceUploadBatch resourceUpload(DR->GetD3DDevice());
 
@@ -174,6 +180,13 @@ void  DirectXTK12MetalicReflection::Draw(const DX::DeviceResources* DR) {
     //2024/12/30/9:42
     commandList->SetGraphicsRootConstantBufferView(0, SceneCBResource.GpuAddress());
     commandList->SetGraphicsRootConstantBufferView(1, lambertCB.GpuAddress());
+    // t0: 環境マップテクスチャをセット (デスクリプタテーブル経由)
+    commandList->SetGraphicsRootDescriptorTable(
+        1,
+        m_resourceDescriptors->GetGpuHandle(Descriptors::EnvMapDiff)
+    );
+    commandList->SetGraphicsRootDescriptorTable(3, m_states->LinearWrap());
+	commandList->SetGraphicsRootDescriptorTable(2, m_resourceDescriptors->GetGpuHandle(Descriptors::EnvMapDiff));
     // パイプラインステート設定
     commandList->SetPipelineState(m_pipelineState.Get());
 
@@ -298,6 +311,9 @@ Microsoft::WRL::ComPtr<ID3D12PipelineState>  DirectXTK12MetalicReflection::Creat
     // Create root parameters and initialize first (constants)
     CD3DX12_ROOT_PARAMETER rootParameters[2] = {};
     rootParameters[RootParameterIndex::SceneBuffer].InitAsConstantBufferView(0, 0, D3D12_SHADER_VISIBILITY_ALL);
+    rootParameters[RootParameterIndex::TextureSRV].InitAsDescriptorTable(0, 0, D3D12_SHADER_VISIBILITY_ALL);
+	rootParameters[RootParameterIndex::TextureSampler].InitAsDescriptorTable(0, 0, D3D12_SHADER_VISIBILITY_ALL);
+
     rootParameters[RootParameterIndex::LambertBuffer].InitAsConstantBufferView(1, 0, D3D12_SHADER_VISIBILITY_ALL);
 
     // Root parameter descriptor

@@ -13,6 +13,7 @@
 #include <CommonStates.h>
 #include <WICTextureLoader.h>
 #include <DirectXMath.h>
+#include <CommonStates.h>
 struct SceneCB {
 	DirectX::XMFLOAT4X4 world;
 	DirectX::XMFLOAT4X4 view;
@@ -51,7 +52,18 @@ enum RootParameterIndex
 	RootParameterCou
 
 };
+// HLSLの cbuffer MaterialBuffer に対応
+struct MaterialConstants
+{
+	DirectX::XMFLOAT3 CameraPos;
+	float Padding1;             // float3の後ろの隙間埋め
 
+	DirectX::XMFLOAT3 AlbedoColor;
+	float Roughness;            // ここでちょうど16バイト境界 (12 + 4)
+
+	float F0;
+	float Padding2[3];          // 構造体サイズを16の倍数にするためのパディング
+};
 
 class DirectXTK12MetalicReflection
 {
@@ -60,6 +72,11 @@ public:
 
 
 	std::unique_ptr<DirectX::DescriptorHeap> m_resourceDescriptors;
+	//SRV用ヒープ
+	std::unique_ptr<DirectX::DescriptorHeap> m_TextureDescriptors;
+
+	std::unique_ptr<DirectX::DescriptorHeap> m_samplerDescriptors;
+	//サンプラーヒープ
 
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> CreateGraphicsPipelineState(DX::DeviceResources* deviceresources, const std::wstring& vertexShaderPath, const std::wstring& pixelShaderPath);
 	void CreateDescriptors(DX::DeviceResources* DR);
@@ -72,7 +89,7 @@ public:
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> m_rootSignature;
 
 	Lambert lambert;
-
+	std::unique_ptr<DirectX::CommonStates> m_states;
 
 	//バッファ
 
