@@ -11,7 +11,7 @@
 #include <EffectPipelineStateDescription.h>
 #include <DirectXHelpers.h>
 #include <CommonStates.h>
-
+#include <WICTextureLoader.h>
 #include <DirectXMath.h>
 struct SceneCB {
 	DirectX::XMFLOAT4X4 world;
@@ -21,6 +21,18 @@ struct SceneCB {
 // 変更後 (推奨)
 // XMFLOAT4を使うことで、自動的に16バイトサイズになり、HLSLのアライメントと一致します。
 // ※w成分は使用しませんが、詰め物(パディング)として機能します。
+
+// DirectXTK12のコンポーネント
+std::unique_ptr<DirectX::DescriptorHeap> m_resourceDescriptors; // SRV用ヒープ
+std::unique_ptr<DirectX::GraphicsMemory> m_graphicsMemory;      // 定数バッファ用リニアアロケータ
+Microsoft::WRL::ComPtr<ID3D12Resource>   m_envMapTexture;       // キューブマップテクスチャ
+
+// デスクリプタヒープのインデックス管理用
+enum Descriptors
+{
+	EnvMapDiff = 0,
+	Count
+};
 struct Lambert
 {
 	DirectX::XMFLOAT4 LightDir;       // 16 bytes
@@ -52,7 +64,8 @@ public:
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> CreateGraphicsPipelineState(DX::DeviceResources* deviceresources, const std::wstring& vertexShaderPath, const std::wstring& pixelShaderPath);
 	void CreateDescriptors(DX::DeviceResources* DR);
 	void Draw(const DX::DeviceResources* DR);
-
+	void InitializeResources(DX::DeviceResources* DR);
+	
 
 	D3D12_VERTEX_BUFFER_VIEW m_vertexBufferView;
 	D3D12_INDEX_BUFFER_VIEW m_indexBufferView;
@@ -79,4 +92,5 @@ public:
 	DirectX::SharedGraphicsResource m_IndexBuffer;
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> m_pipelineState;//新規追加
 };
+
 

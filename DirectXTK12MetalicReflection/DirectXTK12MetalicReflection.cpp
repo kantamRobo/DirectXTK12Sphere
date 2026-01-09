@@ -190,6 +190,47 @@ void  DirectXTK12MetalicReflection::Draw(const DX::DeviceResources* DR) {
 
     uploadResourcesFinished.wait();
 }
+void DirectXTK12MetalicReflection::InitializeResources(DX::DeviceResources* DR)
+{
+
+    auto device = DR->GetD3DDevice();
+
+    // 1. グラフィックスメモリヘルパーの初期化 (定数バッファ用)
+    m_graphicsMemory = std::make_unique<DirectX::GraphicsMemory>(device);
+
+    // 2. デスクリプタヒープの作成
+    m_resourceDescriptors = std::make_unique<DirectX::DescriptorHeap>(
+        device,
+        Descriptors::Count
+    );
+
+    // 3. テクスチャのロード (ResourceUploadBatchを使用)
+    DirectX::ResourceUploadBatch resourceUpload(device);
+    resourceUpload.Begin();
+
+    // キューブマップ (.dds) をロード
+    // ※TextureCubeとして作成されます
+    DX::ThrowIfFailed(
+        DirectX::CreateWICTextureFromFile(
+            device,
+            resourceUpload,
+            L"Assets/EnvironmentMap.dds", // キューブマップDDS
+            m_envMapTexture.ReleaseAndGetAddressOf()
+        )
+    );
+
+    // SRV (Shader Resource View) をヒープに作成
+    DirectX::CreateShaderResourceView(
+        device,
+        m_envMapTexture.Get(),
+        m_resourceDescriptors->GetCpuHandle(Descriptors::EnvMapDiff),
+        true // isCubeMap = true (TextureCubeとして扱うために重要)
+    );
+
+    // アップロードの完了待ち
+    auto uploadResourcesFinished = resourceUpload.End(DR->GetCommandQueue());
+    uploadResourcesFinished.wait();
+}
 using Microsoft::WRL::ComPtr;
 //(DIrectXTK12Assimpで追加)
 // グラフィックパイプラインステートを作成する関数
