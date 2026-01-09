@@ -230,10 +230,10 @@ void DirectXTK12MetalicReflection::InitializeResources(DX::DeviceResources* DR)
     // キューブマップ (.dds) をロード
     // ※TextureCubeとして作成されます
     DX::ThrowIfFailed(
-       directx::CreateDDSTextureFromFileEx(
+       DirectX::CreateDDSTextureFromFileEx(
             device,
             resourceUpload,
-            L"Assets\\EnvironmentMap.dds",
+           L"E:\\repos\\DirectXTK12Sphere\\DirectXTK12MetalicReflection\\Default_reflection.dds",
             0,
             D3D12_RESOURCE_FLAG_NONE,
             DirectX::DDS_LOADER_DEFAULT,
