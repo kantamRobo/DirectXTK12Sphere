@@ -1,5 +1,5 @@
 // 定数バッファ (C++側から送られるデータ)
-cbuffer MaterialBuffer : register(b0)
+cbuffer MaterialConstants : register(b1)
 {
     float3  CameraPos;    // カメラのワールド座標
     float3  AlbedoColor;  // 金属のベース色 (金なら黄色、銅なら赤茶色など)

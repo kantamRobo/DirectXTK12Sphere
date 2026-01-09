@@ -92,7 +92,7 @@ void Game::Render()
     PIXBeginEvent(commandList, PIX_COLOR_DEFAULT, L"Render");
 
     // TODO: Add your rendering code here.
-
+	m_renderer->Draw(m_deviceResources.get());
     PIXEndEvent(commandList);
 
     // Show the new frame.
@@ -100,7 +100,7 @@ void Game::Render()
     m_deviceResources->Present();
 
     // If using the DirectX Tool Kit for DX12, uncomment this line:
-    // m_graphicsMemory->Commit(m_deviceResources->GetCommandQueue());
+    m_graphicsMemory->Commit(m_deviceResources->GetCommandQueue());
 
     PIXEndEvent();
 }
@@ -178,8 +178,8 @@ void Game::OnWindowSizeChanged(int width, int height)
 void Game::GetDefaultSize(int& width, int& height) const noexcept
 {
     // TODO: Change to desired default window size (note minimum size is 320x200).
-    width = 800;
-    height = 600;
+    width = 1200;
+    height = 1200;
 }
 #pragma endregion
 
@@ -201,9 +201,13 @@ void Game::CreateDeviceDependentResources()
     }
 
     // If using the DirectX Tool Kit for DX12, uncomment this line:
-    // m_graphicsMemory = std::make_unique<GraphicsMemory>(device);
+     m_graphicsMemory = std::make_unique<GraphicsMemory>(device);
 
     // TODO: Initialize device dependent objects here (independent of window size).
+	m_renderer = std::make_unique<DirectXTK12MetalicReflection>();
+  
+    m_renderer->CreateBuffer(m_graphicsMemory.get(), m_deviceResources.get(), 1200, 1200);
+   
 }
 
 // Allocate all memory resources that change on a window SizeChanged event.

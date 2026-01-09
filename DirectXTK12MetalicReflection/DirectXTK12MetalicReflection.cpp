@@ -85,10 +85,7 @@ HRESULT DirectXTK12MetalicReflection::CreateBuffer(DirectX::GraphicsMemory* grap
 
     m_IndexBuffer = graphicsMemory->Allocate(sizeof(unsigned short) * static_cast<int>(indices.size()));
     memcpy(m_IndexBuffer.Memory(), indices.data(), sizeof(unsigned short) * indices.size());
-    lambert.LightColor = DirectX::XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);    // ライトの色 (白)
-    lambert.MaterialColor = DirectX::XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f); // マテリアルの色 (赤)
-    lambert.AmbientColor = DirectX::XMFLOAT4(0.1f, 0.1f, 0.1f, 1.0f);  // 環境光 (弱めのグレー)
-
+    
 
     //(DirectXTK12Assimpで追加)
     m_vertexBufferView.BufferLocation = m_VertexBuffer.GpuAddress();
@@ -108,6 +105,9 @@ HRESULT DirectXTK12MetalicReflection::CreateBuffer(DirectX::GraphicsMemory* grap
     DirectX::XMVECTOR up = DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
     DirectX::XMMATRIX viewMatrix = DirectX::XMMatrixLookAtLH(eye, focus, up);
 
+
+	DirectX::XMStoreFloat3(&m_cameraPos, eye);
+    
     constexpr float fov = DirectX::XMConvertToRadians(45.0f);
     float aspect = float(width) / float(height);
 
@@ -120,8 +120,16 @@ HRESULT DirectXTK12MetalicReflection::CreateBuffer(DirectX::GraphicsMemory* grap
     XMStoreFloat4x4(&cb.view, XMMatrixTranspose(viewMatrix));
     XMStoreFloat4x4(&cb.projection, XMMatrixTranspose(projMatrix));
     auto lightDir = XMVector3Normalize(XMVectorSet(10.0f, -1.0f, 1.0f, 0.0f));
-    XMStoreFloat4(&lambert.LightDir, lightDir);
-    lambertCB = graphicsMemory->AllocateConstant(lambert);
+	
+    
+    
+    MaterialConstants metal;
+	metal.CameraPos = m_cameraPos;
+	metal.AlbedoColor = DirectX::XMFLOAT3(1.0f, 0.76f, 0.33f); // 例: ゴールド
+	metal.Roughness = 0.2f;         // 少しツヤがある
+	metal.F0 = 1.0f;                // 金属なので高め
+
+    metalicCB = graphicsMemory->AllocateConstant(metal);
 
 
     //定数バッファの作成(DIrectXTK12Assimpで追加)
@@ -134,7 +142,7 @@ HRESULT DirectXTK12MetalicReflection::CreateBuffer(DirectX::GraphicsMemory* grap
     //定数バッファの作成(DIrectXTK12Assimpで追加)
 
     //https://github.com/microsoft/DirectXTK12/wiki/GraphicsMemory
-
+	InitializeResources(deviceResources);
     m_pipelineState = CreateGraphicsPipelineState(deviceResources, L"VertexShader.hlsl", L"PixelShader.hlsl");
 
 
@@ -144,7 +152,7 @@ HRESULT DirectXTK12MetalicReflection::CreateBuffer(DirectX::GraphicsMemory* grap
 
 //(DIrectXTK12Assimpで追加)
 void  DirectXTK12MetalicReflection::Draw(const DX::DeviceResources* DR) {
-
+	
     // --- 1. 定数バッファの更新 ---
     MaterialConstants constants;
     constants.CameraPos = m_cameraPos;  // 現在のカメラ位置
@@ -179,14 +187,14 @@ void  DirectXTK12MetalicReflection::Draw(const DX::DeviceResources* DR) {
 
     //2024/12/30/9:42
     commandList->SetGraphicsRootConstantBufferView(0, SceneCBResource.GpuAddress());
-    commandList->SetGraphicsRootConstantBufferView(1, lambertCB.GpuAddress());
+    commandList->SetGraphicsRootConstantBufferView(1, metalicCB.GpuAddress());
     // t0: 環境マップテクスチャをセット (デスクリプタテーブル経由)
     commandList->SetGraphicsRootDescriptorTable(
         1,
-        m_resourceDescriptors->GetGpuHandle(Descriptors::EnvMapDiff)
+        m_resourceDescriptors->GetGpuHandle(DescriptorsMetal::EnvMapDiff)
     );
     commandList->SetGraphicsRootDescriptorTable(3, m_states->LinearWrap());
-	commandList->SetGraphicsRootDescriptorTable(2, m_resourceDescriptors->GetGpuHandle(Descriptors::EnvMapDiff));
+	commandList->SetGraphicsRootDescriptorTable(2, m_resourceDescriptors->GetGpuHandle(DescriptorsMetal::EnvMapDiff));
     // パイプラインステート設定
     commandList->SetPipelineState(m_pipelineState.Get());
 
@@ -208,13 +216,11 @@ void DirectXTK12MetalicReflection::InitializeResources(DX::DeviceResources* DR)
 
     auto device = DR->GetD3DDevice();
 
-    // 1. グラフィックスメモリヘルパーの初期化 (定数バッファ用)
-    m_graphicsMemory = std::make_unique<DirectX::GraphicsMemory>(device);
 
     // 2. デスクリプタヒープの作成
     m_resourceDescriptors = std::make_unique<DirectX::DescriptorHeap>(
         device,
-        Descriptors::Count
+       6
     );
 
     // 3. テクスチャのロード (ResourceUploadBatchを使用)
@@ -224,19 +230,21 @@ void DirectXTK12MetalicReflection::InitializeResources(DX::DeviceResources* DR)
     // キューブマップ (.dds) をロード
     // ※TextureCubeとして作成されます
     DX::ThrowIfFailed(
-        DirectX::CreateWICTextureFromFile(
+       directx::CreateDDSTextureFromFileEx(
             device,
             resourceUpload,
-            L"Assets/EnvironmentMap.dds", // キューブマップDDS
-            m_envMapTexture.ReleaseAndGetAddressOf()
-        )
+            L"Assets\\EnvironmentMap.dds",
+            0,
+            D3D12_RESOURCE_FLAG_NONE,
+            DirectX::DDS_LOADER_DEFAULT,
+		   m_envMapTexture.ReleaseAndGetAddressOf())
     );
 
     // SRV (Shader Resource View) をヒープに作成
     DirectX::CreateShaderResourceView(
         device,
         m_envMapTexture.Get(),
-        m_resourceDescriptors->GetCpuHandle(Descriptors::EnvMapDiff),
+        m_resourceDescriptors->GetCpuHandle(DescriptorsMetal::EnvMapDiff),
         true // isCubeMap = true (TextureCubeとして扱うために重要)
     );
 
@@ -309,12 +317,13 @@ Microsoft::WRL::ComPtr<ID3D12PipelineState>  DirectXTK12MetalicReflection::Creat
         D3D12_ROOT_SIGNATURE_FLAG_DENY_HULL_SHADER_ROOT_ACCESS;
 
     // Create root parameters and initialize first (constants)
-    CD3DX12_ROOT_PARAMETER rootParameters[2] = {};
+    CD3DX12_ROOT_PARAMETER rootParameters[4] = {};
     rootParameters[RootParameterIndex::SceneBuffer].InitAsConstantBufferView(0, 0, D3D12_SHADER_VISIBILITY_ALL);
+    rootParameters[RootParameterIndex::MetalicBuffer].InitAsConstantBufferView(1, 0, D3D12_SHADER_VISIBILITY_ALL);
     rootParameters[RootParameterIndex::TextureSRV].InitAsDescriptorTable(0, 0, D3D12_SHADER_VISIBILITY_ALL);
 	rootParameters[RootParameterIndex::TextureSampler].InitAsDescriptorTable(0, 0, D3D12_SHADER_VISIBILITY_ALL);
 
-    rootParameters[RootParameterIndex::LambertBuffer].InitAsConstantBufferView(1, 0, D3D12_SHADER_VISIBILITY_ALL);
+   
 
     // Root parameter descriptor
     CD3DX12_ROOT_SIGNATURE_DESC rsigDesc = {};

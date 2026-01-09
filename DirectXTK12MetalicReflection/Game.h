@@ -6,7 +6,7 @@
 
 #include "DeviceResources.h"
 #include "StepTimer.h"
-
+#include "DirectXTK12MetalicReflection.h"
 #include <memory>
 
 
@@ -59,10 +59,10 @@ private:
 
     // Device resources.
     std::unique_ptr<DX::DeviceResources>        m_deviceResources;
-
+	std::unique_ptr<DirectXTK12MetalicReflection> m_renderer;
     // Rendering loop timer.
     DX::StepTimer                               m_timer;
 
     // If using the DirectX Tool Kit for DX12, uncomment this line:
-    // std::unique_ptr<DirectX::GraphicsMemory> m_graphicsMemory;
+    std::unique_ptr<DirectX::GraphicsMemory> m_graphicsMemory;
 };
