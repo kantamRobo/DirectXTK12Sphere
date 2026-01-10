@@ -62,7 +62,9 @@ public:
 
 	std::unique_ptr<DirectX::DescriptorHeap> m_resourceDescriptors;
 	//サンプラーヒープ
-
+	std::unique_ptr<DirectX::DescriptorHeap> m_samplerHeap;
+	//テクスチャヒープ
+	
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> CreateGraphicsPipelineState(DX::DeviceResources* deviceresources, const std::wstring& vertexShaderPath, const std::wstring& pixelShaderPath);
 	void CreateDescriptors(DX::DeviceResources* DR);
 	void Draw(const DX::DeviceResources* DR);

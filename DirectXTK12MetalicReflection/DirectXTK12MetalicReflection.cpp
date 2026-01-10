@@ -106,6 +106,8 @@ HRESULT DirectXTK12MetalicReflection::CreateBuffer(DirectX::GraphicsMemory* grap
     DirectX::XMMATRIX viewMatrix = DirectX::XMMatrixLookAtLH(eye, focus, up);
 
 
+
+
 	DirectX::XMStoreFloat3(&m_cameraPos, eye);
     
     constexpr float fov = DirectX::XMConvertToRadians(45.0f);
@@ -116,10 +118,18 @@ HRESULT DirectXTK12MetalicReflection::CreateBuffer(DirectX::GraphicsMemory* grap
     DirectX::XMMATRIX projMatrix = DirectX::XMMatrixPerspectiveFovLH(fov, aspect, nearZ, farZ);
 
     SceneCB cb;
+    /*
     XMStoreFloat4x4(&cb.world, XMMatrixTranspose(worldMatrix));
     XMStoreFloat4x4(&cb.view, XMMatrixTranspose(viewMatrix));
     XMStoreFloat4x4(&cb.projection, XMMatrixTranspose(projMatrix));
-    auto lightDir = XMVector3Normalize(XMVectorSet(10.0f, -1.0f, 1.0f, 0.0f));
+    
+    */
+    
+    // ★修正: HLSL側で row_major を指定したので、Transpose(転置)は不要です。
+    // そのまま代入してください。
+    XMStoreFloat4x4(&cb.world, worldMatrix);       // XMMatrixTranspose を削除
+    XMStoreFloat4x4(&cb.view, viewMatrix);         // XMMatrixTranspose を削除
+    XMStoreFloat4x4(&cb.projection, projMatrix);   // XMMatrixTranspose を削除auto lightDir = XMVector3Normalize(XMVectorSet(10.0f, -1.0f, 1.0f, 0.0f));
 	
     
     
@@ -174,6 +184,8 @@ void  DirectXTK12MetalicReflection::Draw(const DX::DeviceResources* DR) {
         OutputDebugStringA("Command list is null.\n");
         return;
     }
+	ID3D12DescriptorHeap* heaps[] = { m_resourceDescriptors->Heap(),m_samplerHeap->Heap(),};
+    commandList->SetDescriptorHeaps(2,heaps);
 
     // 入力アセンブラー設定
     commandList->IASetIndexBuffer(&m_indexBufferView);
@@ -181,21 +193,25 @@ void  DirectXTK12MetalicReflection::Draw(const DX::DeviceResources* DR) {
     commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
 
-
+    
     // ルートシグネチャ設定
     commandList->SetGraphicsRootSignature(m_rootSignature.Get());
 
-    //2024/12/30/9:42
+   
+    // ★修正: 定数バッファ (b0, b1) は GPU仮想アドレス を直接渡す
+     // SceneCBResource は GraphicsMemory::AllocateConstant で確保されているので GpuAddress() を持っています
     commandList->SetGraphicsRootConstantBufferView(0, SceneCBResource.GpuAddress());
+
     commandList->SetGraphicsRootConstantBufferView(1, metalicCB.GpuAddress());
-    // t0: 環境マップテクスチャをセット (デスクリプタテーブル経由)
-    commandList->SetGraphicsRootDescriptorTable(
-        1,
-        m_resourceDescriptors->GetGpuHandle(DescriptorsMetal::EnvMapDiff)
-    );
-    commandList->SetGraphicsRootDescriptorTable(3, m_states->LinearWrap());
-	commandList->SetGraphicsRootDescriptorTable(2, m_resourceDescriptors->GetGpuHandle(DescriptorsMetal::EnvMapDiff));
-    // パイプラインステート設定
+
+    // ★修正: テクスチャ (t0)
+    // テクスチャはヒープの「先頭(0番目)」に作りましたが、
+    // ルートパラメータのインデックスとしては「2番目(TextureSRV)」に渡す必要があります。
+    commandList->SetGraphicsRootDescriptorTable(2, m_resourceDescriptors->GetFirstGpuHandle());
+
+    // サンプラー (s0)
+    // ルートパラメータ「3番目」に渡す
+    commandList->SetGraphicsRootDescriptorTable(3, m_samplerHeap->GetFirstGpuHandle()); // パイプラインステート設定
     commandList->SetPipelineState(m_pipelineState.Get());
 
     // 描画コール
@@ -217,12 +233,18 @@ void DirectXTK12MetalicReflection::InitializeResources(DX::DeviceResources* DR)
     auto device = DR->GetD3DDevice();
 
 
+    m_states = std::make_unique<CommonStates>(device);
     // 2. デスクリプタヒープの作成
-    m_resourceDescriptors = std::make_unique<DirectX::DescriptorHeap>(
-        device,
-       6
-    );
-
+    m_resourceDescriptors = std::make_unique<DirectX::DescriptorHeap>(device,
+        D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV,
+        D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE,
+        3);
+       m_samplerHeap = std::make_unique<DirectX::DescriptorHeap>(device,
+        D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER,
+        D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE,
+        1
+	);
+    
     // 3. テクスチャのロード (ResourceUploadBatchを使用)
     DirectX::ResourceUploadBatch resourceUpload(device);
     resourceUpload.Begin();
@@ -240,14 +262,16 @@ void DirectXTK12MetalicReflection::InitializeResources(DX::DeviceResources* DR)
 		   m_envMapTexture.ReleaseAndGetAddressOf())
     );
 
+   
+    
     // SRV (Shader Resource View) をヒープに作成
     DirectX::CreateShaderResourceView(
         device,
         m_envMapTexture.Get(),
-        m_resourceDescriptors->GetCpuHandle(DescriptorsMetal::EnvMapDiff),
+        m_resourceDescriptors->GetFirstCpuHandle(),
         true // isCubeMap = true (TextureCubeとして扱うために重要)
     );
-
+   
     // アップロードの完了待ち
     auto uploadResourcesFinished = resourceUpload.End(DR->GetCommandQueue());
     uploadResourcesFinished.wait();
@@ -315,19 +339,36 @@ Microsoft::WRL::ComPtr<ID3D12PipelineState>  DirectXTK12MetalicReflection::Creat
         D3D12_ROOT_SIGNATURE_FLAG_DENY_DOMAIN_SHADER_ROOT_ACCESS |
         D3D12_ROOT_SIGNATURE_FLAG_DENY_GEOMETRY_SHADER_ROOT_ACCESS |
         D3D12_ROOT_SIGNATURE_FLAG_DENY_HULL_SHADER_ROOT_ACCESS;
+    // ★修正: 定数バッファ用のRangeは不要になったので、配列サイズを 4 -> 2 に減らす
+    CD3DX12_DESCRIPTOR_RANGE ranges[2] = {};
 
-    // Create root parameters and initialize first (constants)
+    // 定数バッファ(b0, b1)の range 定義は削除します
+
+    // Range[0] : テクスチャ (t0) 用
+    ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC);
+
+    // Range[1] : サンプラー (s0) 用
+    ranges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER, 1, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC);
+
+    // ルートパラメータの作成
     CD3DX12_ROOT_PARAMETER rootParameters[4] = {};
-    rootParameters[RootParameterIndex::SceneBuffer].InitAsConstantBufferView(0, 0, D3D12_SHADER_VISIBILITY_ALL);
-    rootParameters[RootParameterIndex::MetalicBuffer].InitAsConstantBufferView(1, 0, D3D12_SHADER_VISIBILITY_ALL);
-    rootParameters[RootParameterIndex::TextureSRV].InitAsDescriptorTable(0, 0, D3D12_SHADER_VISIBILITY_ALL);
-	rootParameters[RootParameterIndex::TextureSampler].InitAsDescriptorTable(0, 0, D3D12_SHADER_VISIBILITY_ALL);
 
-   
+    // ★修正: ここを DescriptorTable ではなく ConstantBufferView に変更
+    // b0: SceneBuffer
+    rootParameters[RootParameterIndex::SceneBuffer].InitAsConstantBufferView(0, 0, D3D12_SHADER_VISIBILITY_ALL);
+
+    // b1: MetalicBuffer
+    rootParameters[RootParameterIndex::MetalicBuffer].InitAsConstantBufferView(1, 0, D3D12_SHADER_VISIBILITY_ALL);
+
+    // t0: Texture (これはテーブルのまま。ranges[0]を使う)
+    rootParameters[RootParameterIndex::TextureSRV].InitAsDescriptorTable(1, &ranges[0], D3D12_SHADER_VISIBILITY_ALL);
+
+    // s0: Sampler (これはテーブルのまま。ranges[1]を使う)
+    rootParameters[RootParameterIndex::TextureSampler].InitAsDescriptorTable(1, &ranges[1], D3D12_SHADER_VISIBILITY_ALL);
 
     // Root parameter descriptor
     CD3DX12_ROOT_SIGNATURE_DESC rsigDesc = {};
-
+    
     // use all parameters
     rsigDesc.Init(static_cast<UINT>(std::size(rootParameters)), rootParameters, 0, nullptr, rootSignatureFlags);
 
