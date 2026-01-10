@@ -280,7 +280,7 @@ void DirectXTK12MetalicReflection::InitializeResources(DX::DeviceResources* DR)
        DirectX::CreateDDSTextureFromFileEx(
             device,
             resourceUpload,
-           L"Default_reflection.dds",
+           L"E:\\repos\\DirectXTK12Sphere\\DirectXTK12MetalicReflection\\earth-cubemap.dds",
             0,
             D3D12_RESOURCE_FLAG_NONE,
             DirectX::DDS_LOADER_DEFAULT,
