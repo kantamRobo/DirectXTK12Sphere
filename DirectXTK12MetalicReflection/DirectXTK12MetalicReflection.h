@@ -67,7 +67,8 @@ public:
 	
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> CreateGraphicsPipelineState(DX::DeviceResources* deviceresources, const std::wstring& vertexShaderPath, const std::wstring& pixelShaderPath);
 	void CreateDescriptors(DX::DeviceResources* DR);
-	void Draw(const DX::DeviceResources* DR);
+	
+	void Draw(DirectX::GraphicsMemory* graphicsMemory, const DX::DeviceResources* DR);
 	void InitializeResources(DX::DeviceResources* DR);
 	
 

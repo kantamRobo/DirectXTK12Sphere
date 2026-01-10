@@ -161,17 +161,37 @@ HRESULT DirectXTK12MetalicReflection::CreateBuffer(DirectX::GraphicsMemory* grap
 
 
 //(DIrectXTK12Assimpで追加)
-void  DirectXTK12MetalicReflection::Draw(const DX::DeviceResources* DR) {
+void  DirectXTK12MetalicReflection::Draw(DirectX::GraphicsMemory* graphicsMemory,const DX::DeviceResources* DR) {
 	
-    // --- 1. 定数バッファの更新 ---
+    // --- 1. 定数バッファのデータの準備 ---
     MaterialConstants constants;
-    constants.CameraPos = m_cameraPos;  // 現在のカメラ位置
-    constants.AlbedoColor = DirectX::XMFLOAT3(1.0f, 0.76f, 0.33f); // 例: ゴールド
-    constants.Roughness = 0.2f;         // 少しツヤがある
-    constants.F0 = 1.0f;                // 金属なので高め
+    constants.CameraPos = m_cameraPos;
+    constants.AlbedoColor = DirectX::XMFLOAT3(1.0f, 0.76f, 0.33f); // ゴールド
+    constants.Roughness = 0.2f;
+    constants.F0 = 1.0f;
 
+    // ★重要修正: 毎フレーム、新しいGPUメモリを確保してデータを書き込む
+    // (以前の metalicCB ではなく、今作った dynamicCB を使う)
+    auto dynamicCB = graphicsMemory->AllocateConstant(constants);
     DirectX::ResourceUploadBatch resourceUpload(DR->GetD3DDevice());
+    // Draw関数の先頭に追加
+    SceneCB sceneData;
+    // ※CreateBufferで計算した値を保持していない場合、初期位置で表示させるために以下をセット
+    DirectX::XMMATRIX world = DirectX::XMMatrixIdentity(); // 原点
+    DirectX::XMMATRIX view = DirectX::XMMatrixLookAtLH(
+        DirectX::XMVectorSet(2.0f, 2.0f, -2.0f, 0.0f),
+        DirectX::XMVectorSet(0.0f, 0.0f, 0.0f, 0.0f),
+        DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f));
+    DirectX::XMMATRIX proj = DirectX::XMMatrixPerspectiveFovLH(
+        DirectX::XMConvertToRadians(45.0f),
+        DR->GetOutputSize().right / (float)DR->GetOutputSize().bottom,
+        0.1f, 100.0f);
 
+    XMStoreFloat4x4(&sceneData.world, world);
+    XMStoreFloat4x4(&sceneData.view, view);
+    XMStoreFloat4x4(&sceneData.projection, proj);
+
+    auto dynamicSceneCB = graphicsMemory->AllocateConstant(sceneData);
     resourceUpload.Begin();
     if (vertices.empty() || indices.empty()) {
         OutputDebugStringA("Vertices or indices buffer is empty.\n");
@@ -200,9 +220,13 @@ void  DirectXTK12MetalicReflection::Draw(const DX::DeviceResources* DR) {
    
     // ★修正: 定数バッファ (b0, b1) は GPU仮想アドレス を直接渡す
      // SceneCBResource は GraphicsMemory::AllocateConstant で確保されているので GpuAddress() を持っています
+   
     commandList->SetGraphicsRootConstantBufferView(0, SceneCBResource.GpuAddress());
 
-    commandList->SetGraphicsRootConstantBufferView(1, metalicCB.GpuAddress());
+    // ★重要修正: 定数バッファ 1 (Material)
+     // ここで metalicCB.GpuAddress() ではなく、さっき作った dynamicCB.GpuAddress() を渡す！
+   commandList->SetGraphicsRootConstantBufferView(1, dynamicSceneCB.GpuAddress());
+    commandList->SetGraphicsRootConstantBufferView(1, dynamicCB.GpuAddress());
 
     // ★修正: テクスチャ (t0)
     // テクスチャはヒープの「先頭(0番目)」に作りましたが、
@@ -212,6 +236,7 @@ void  DirectXTK12MetalicReflection::Draw(const DX::DeviceResources* DR) {
     // サンプラー (s0)
     // ルートパラメータ「3番目」に渡す
     commandList->SetGraphicsRootDescriptorTable(3, m_samplerHeap->GetFirstGpuHandle()); // パイプラインステート設定
+  
     commandList->SetPipelineState(m_pipelineState.Get());
 
     // 描画コール
@@ -255,7 +280,7 @@ void DirectXTK12MetalicReflection::InitializeResources(DX::DeviceResources* DR)
        DirectX::CreateDDSTextureFromFileEx(
             device,
             resourceUpload,
-           L"E:\\repos\\DirectXTK12Sphere\\DirectXTK12MetalicReflection\\Default_reflection.dds",
+           L"Default_reflection.dds",
             0,
             D3D12_RESOURCE_FLAG_NONE,
             DirectX::DDS_LOADER_DEFAULT,
@@ -271,6 +296,26 @@ void DirectXTK12MetalicReflection::InitializeResources(DX::DeviceResources* DR)
         m_resourceDescriptors->GetFirstCpuHandle(),
         true // isCubeMap = true (TextureCubeとして扱うために重要)
     );
+    // ---------------------------------------------------------
+    // ★ここを追加！: サンプラーの中身を作成する
+    // ---------------------------------------------------------
+    D3D12_SAMPLER_DESC samplerDesc = {};
+    samplerDesc.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR; // 線形補間
+    samplerDesc.AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP; // 繰り返し
+    samplerDesc.AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+    samplerDesc.AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+    samplerDesc.MipLODBias = 0;
+    samplerDesc.MaxAnisotropy = 1;
+    samplerDesc.ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
+    samplerDesc.BorderColor[0] = 1.0f;
+    samplerDesc.BorderColor[1] = 1.0f;
+    samplerDesc.BorderColor[2] = 1.0f;
+    samplerDesc.BorderColor[3] = 1.0f;
+    samplerDesc.MinLOD = 0.0f;
+    samplerDesc.MaxLOD = D3D12_FLOAT32_MAX;
+
+    // サンプラーヒープの先頭ハンドルに書き込む
+    device->CreateSampler(&samplerDesc, m_samplerHeap->GetFirstCpuHandle());
    
     // アップロードの完了待ち
     auto uploadResourcesFinished = resourceUpload.End(DR->GetCommandQueue());
@@ -384,10 +429,13 @@ Microsoft::WRL::ComPtr<ID3D12PipelineState>  DirectXTK12MetalicReflection::Creat
         DirectX::CommonStates::DepthDefault,
         DirectX::CommonStates::CullCounterClockwise,
         rtState);
+
     D3D12_SHADER_BYTECODE vertexshaderBCode = { vertexShader->GetBufferPointer(), vertexShader->GetBufferSize() };
 
 
     D3D12_SHADER_BYTECODE pixelShaderBCode = { pixelShader->GetBufferPointer(), pixelShader->GetBufferSize() };
+
+    
     // パイプラインステートオブジェクトを作成
     ComPtr<ID3D12PipelineState> pipelineState;
 

@@ -33,8 +33,9 @@ float4 main(PS_INPUT input) : SV_TARGET
     // 3. 環境マップのサンプリング (反射色を取得)
     // 粗さ(Roughness)がある場合、ミップマップレベルを上げてぼかすのが一般的です。
     // TextureCube.SampleLevel(Sampler, Vector, MipLevel) を使います。
-    float3 envColor = EnvMap.SampleLevel(Sampler, R, Roughness * 10.0f).rgb;
-
+   // 修正後（テスト用）
+// 第3引数を 0.0f に固定して、一番きれいな画像を強制使用する
+    float3 envColor = EnvMap.SampleLevel(Sampler, R, 0.0f).rgb;
     // 4. フレネル効果 (Schlickの近似)
     // 視線が浅い角度(輪郭部分)になるほど、反射が強くなる現象です。
     float NdotV = saturate(dot(N, V));
@@ -49,6 +50,7 @@ float4 main(PS_INPUT input) : SV_TARGET
     // フレネル項を適用して、輪郭を少し強調・補正する (簡易的なPBR的アプローチ)
     finalColor = lerp(finalColor, envColor, fresnel);
 
-    return float4(finalColor, 1.0f);
+    //return float4(finalColor, 1.0f);
+    return float4(N * 0.5f + 0.5f, 1.0f);
 }
 

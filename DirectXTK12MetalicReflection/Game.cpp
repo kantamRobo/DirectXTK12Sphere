@@ -92,7 +92,7 @@ void Game::Render()
     PIXBeginEvent(commandList, PIX_COLOR_DEFAULT, L"Render");
 
     // TODO: Add your rendering code here.
-	m_renderer->Draw(m_deviceResources.get());
+	m_renderer->Draw(m_graphicsMemory.get(), m_deviceResources.get());
     PIXEndEvent(commandList);
 
     // Show the new frame.
