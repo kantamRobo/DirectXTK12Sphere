@@ -27,7 +27,7 @@ enum Descriptors
 using namespace DirectX;
 HRESULT DirectXTK12MetalicReflection::CreateBuffer(DirectX::GraphicsMemory* graphicsMemory, DX::DeviceResources* deviceResources, int height, int width)
 {
-
+   resourceUpload = DirectX::ResourceUploadBatch(deviceResources->GetD3DDevice());
     constexpr int slices = 32;  // 経度方向の分割数
     constexpr int stacks = 32;  // 緯度方向の分割数
     constexpr float radius = 1.0f;
@@ -274,7 +274,7 @@ void DirectXTK12MetalicReflection::InitializeResources(DX::DeviceResources* DR)
 	);
     
     // 3. テクスチャのロード (ResourceUploadBatchを使用)
-    DirectX::ResourceUploadBatch resourceUpload(device);
+   
     resourceUpload.Begin();
 
     // キューブマップ (.dds) をロード
