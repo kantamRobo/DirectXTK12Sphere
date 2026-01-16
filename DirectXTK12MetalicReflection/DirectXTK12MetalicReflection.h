@@ -89,7 +89,7 @@ public:
 	
 	Microsoft::WRL::ComPtr<ID3D12Resource>   m_envMapTexture;       // キューブマップテクスチャ
 
-	DirectX::ResourceUploadBatch resourceUpload;
+	
 	std::vector<D3D12_INPUT_ELEMENT_DESC> m_layout;
 	std::vector<DirectX::VertexPositionNormal> vertices;
 	std::vector<unsigned short> indices;

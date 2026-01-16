@@ -43,6 +43,7 @@ void DirectXTK12MetalicReflection::Draw(DirectX::GraphicsMemory* graphicsMemory,
 
 auto dynamicSceneCB = graphicsMemory->AllocateConstant(sceneData);
 
+
 MaterialConstants constants;
 constants.CameraPos = m_cameraPos;
 constants.AlbedoColor = DirectX::XMFLOAT3(1.0f, 0.76f, 0.33f); // ゴールド
@@ -94,7 +95,8 @@ enum Descriptors
 using namespace DirectX;
 HRESULT DirectXTK12MetalicReflection::CreateBuffer(DirectX::GraphicsMemory* graphicsMemory, DX::DeviceResources* deviceResources, int height, int width)
 {
-   resourceUpload = DirectX::ResourceUploadBatch(deviceResources->GetD3DDevice());
+    
+	
     constexpr int slices = 32;  // 経度方向の分割数
     constexpr int stacks = 32;  // 緯度方向の分割数
     constexpr float radius = 1.0f;
@@ -341,7 +343,7 @@ void DirectXTK12MetalicReflection::InitializeResources(DX::DeviceResources* DR)
 	);
     
     // 3. テクスチャのロード (ResourceUploadBatchを使用)
-   
+       DirectX::ResourceUploadBatch resourceUpload(device);
     resourceUpload.Begin();
 
     // キューブマップ (.dds) をロード
