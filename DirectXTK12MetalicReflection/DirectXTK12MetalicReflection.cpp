@@ -6,7 +6,74 @@
 
 
 
+/*
 
+
+// DirectXTK12MetalicReflection.cpp
+
+void DirectXTK12MetalicReflection::Draw(DirectX::GraphicsMemory* graphicsMemory, const DX::DeviceResources* DR) {
+
+    // 1. コマンドリスト等の取得
+    auto commandList = DR->GetCommandList();
+    if (!commandList) return;
+
+    ID3D12DescriptorHeap* heaps[] = { m_resourceDescriptors->Heap(), m_samplerHeap->Heap() };
+    commandList->SetDescriptorHeaps(2, heaps);
+
+    // --- 定数バッファの更新 ---
+
+    // A. シーン定数バッファ (View/Projection)
+    // ※ CreateBufferで計算した m_cameraPos などを再利用します。
+    // ※ 注意: Draw内で毎回 Identity にリセットすると回転しません。
+    //    回転させたい場合はメンバ変数の world 行列を使用してください。
+    SceneCB sceneData;
+    DirectX::XMStoreFloat4x4(&sceneData.world, worldMatrix); // ★メンバ変数などで保持している行列を使う
+    DirectX::XMStoreFloat4x4(&sceneData.view, viewMatrix);   // ★CreateBuffer等で計算・保持したもの
+    DirectX::XMStoreFloat4x4(&sceneData.projection, projMatrix);
+
+    // 仮にここで計算する場合（動かない場合）:
+    /*
+    DirectX::XMMATRIX view = DirectX::XMMatrixLookAtLH(
+        DirectX::XMLoadFloat3(&m_cameraPos), // 保存されたカメラ位置を使う
+        DirectX::XMVectorSet(0.0f, 0.0f, 0.0f, 0.0f),
+        DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f));
+    XMStoreFloat4x4(&sceneData.view, view);
+    // ... world, proj も同様に設定
+    
+
+auto dynamicSceneCB = graphicsMemory->AllocateConstant(sceneData);
+
+MaterialConstants constants;
+constants.CameraPos = m_cameraPos;
+constants.AlbedoColor = DirectX::XMFLOAT3(1.0f, 0.76f, 0.33f); // ゴールド
+constants.Roughness = 0.2f;
+constants.F0 = 1.0f; // ★重要: シェーダー修正後は 1.0 でもOKですが、強すぎる場合は 0.9 程度に
+
+auto dynamicMaterialCB = graphicsMemory->AllocateConstant(constants);
+
+
+commandList->SetGraphicsRootSignature(m_rootSignature.Get());
+
+
+commandList->SetGraphicsRootConstantBufferView(RootParameterIndex::SceneBuffer, dynamicSceneCB.GpuAddress());
+
+commandList->SetGraphicsRootConstantBufferView(RootParameterIndex::MetalicBuffer, dynamicMaterialCB.GpuAddress());
+
+commandList->SetGraphicsRootDescriptorTable(RootParameterIndex::TextureSRV, m_resourceDescriptors->GetFirstGpuHandle());
+
+commandList->SetGraphicsRootDescriptorTable(RootParameterIndex::TextureSampler, m_samplerHeap->GetFirstGpuHandle());
+
+commandList->SetPipelineState(m_pipelineState.Get());
+commandList->IASetIndexBuffer(&m_indexBufferView);
+commandList->IASetVertexBuffers(0, 1, &m_vertexBufferView);
+commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+if (!indices.empty()) {
+    commandList->DrawIndexedInstanced(static_cast<UINT>(indices.size()), 1, 0, 0, 0);
+}
+}
+
+*/
 
 
 
