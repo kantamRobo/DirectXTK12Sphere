@@ -166,8 +166,8 @@ void  DirectXTK12MetalicReflection::Draw(DirectX::GraphicsMemory* graphicsMemory
     // --- 1. 定数バッファのデータの準備 ---
     MaterialConstants constants;
     constants.CameraPos = m_cameraPos;
-    constants.AlbedoColor = DirectX::XMFLOAT3(1.0f, 0.76f, 0.33f); // ゴールド
-    constants.Roughness = 0.2f;
+    constants.AlbedoColor = DirectX::XMFLOAT3(1.0f, 0, 0); // ゴールド
+    constants.Roughness = 0.05f;
     constants.F0 = 1.0f;
 
     // ★重要修正: 毎フレーム、新しいGPUメモリを確保してデータを書き込む
@@ -221,8 +221,11 @@ void  DirectXTK12MetalicReflection::Draw(DirectX::GraphicsMemory* graphicsMemory
     // ★修正: 定数バッファ (b0, b1) は GPU仮想アドレス を直接渡す
      // SceneCBResource は GraphicsMemory::AllocateConstant で確保されているので GpuAddress() を持っています
    
-    commandList->SetGraphicsRootConstantBufferView(0, SceneCBResource.GpuAddress());
-
+  // ★修正: 正しいバッファを正しいスロットにセット
+    // スロット0 (SceneCB) <- 計算した dynamicSceneCB をセット (カメラ移動に対応するため)
+    commandList->SetGraphicsRootConstantBufferView(RootParameterIndex::SceneBuffer, dynamicSceneCB.GpuAddress());
+    // スロット1 (MetalicBuffer) <- マテリアル用 dynamicMaterialCB をセット
+    commandList->SetGraphicsRootConstantBufferView(RootParameterIndex::MetalicBuffer, metalicCB.GpuAddress());
     // ★重要修正: 定数バッファ 1 (Material)
      // ここで metalicCB.GpuAddress() ではなく、さっき作った dynamicCB.GpuAddress() を渡す！
    commandList->SetGraphicsRootConstantBufferView(1, dynamicSceneCB.GpuAddress());
@@ -390,10 +393,10 @@ Microsoft::WRL::ComPtr<ID3D12PipelineState>  DirectXTK12MetalicReflection::Creat
     // 定数バッファ(b0, b1)の range 定義は削除します
 
     // Range[0] : テクスチャ (t0) 用
-    ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC);
+    ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_NONE);
 
     // Range[1] : サンプラー (s0) 用
-    ranges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER, 1, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC);
+    ranges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER, 1, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_NONE);
 
     // ルートパラメータの作成
     CD3DX12_ROOT_PARAMETER rootParameters[4] = {};

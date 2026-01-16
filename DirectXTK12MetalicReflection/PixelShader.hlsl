@@ -1,60 +1,52 @@
 // PixelShader.hlsl
-
-// 定数バッファ (マテリアル設定)
-// register(b0) はルートシグネチャの設定に合わせて変更してください
-cbuffer MaterialBuffer : register(b0)
+cbuffer MaterialBuffer : register(b1)
 {
-    float3  CameraPos;    // カメラのワールド座標
-    float3  AlbedoColor;  // 金属のベース色
-    float   Roughness;    // 表面の粗さ (0.0: 鏡面 ～ 1.0: 曇り)
-    float   F0;           // 正面反射率 (金属は1.0に近い値)
+    float3  CameraPos;
+    float3  AlbedoColor;
+    float   Roughness;
+    float   F0;
 };
 
-// テクスチャとサンプラー
-TextureCube EnvMap : register(t0); // 環境マップ (キューブマップ)
+TextureCube EnvMap : register(t0);
 SamplerState Sampler : register(s0);
 
-// 入力構造体
-// ★重要: バーテックスシェーダーの VS_OUTPUT とセマンティクス(POSITION, NORMAL等)を一致させる
 struct PS_INPUT
 {
     float4 Pos : SV_POSITION;
-    float3 WorldPos : POSITION;    // VSで計算したワールド座標
-    float3 Normal : NORMAL;        // VSで計算した法線
+    float3 WorldPos : POSITION;
+    float3 Normal : NORMAL;
 };
 
 float4 main(PS_INPUT input) : SV_TARGET
 {
-    // 1. ベクトルの正規化
-    // 補間された法線は長さが1ではなくなっているため再正規化必須
     float3 N = normalize(input.Normal);
+    float3 V = normalize(CameraPos - input.WorldPos);
+    float3 R = reflect(-V, N);
 
-// 視線ベクトル (ワールド座標での カメラ位置 - 頂点位置)
-float3 V = normalize(CameraPos - input.WorldPos);
+    // 環境マップのサンプリング
+    float3 envColor = EnvMap.SampleLevel(Sampler, R, Roughness * 10.0f).rgb;
 
-// 2. 反射ベクトルの計算
-// reflect(入射ベクトル, 法線)
-// 視線Vは「カメラへ向かう」定義なので、-V (カメラから来る) にして反射させる
-float3 R = reflect(-V, N);
+    // --- 修正箇所: 金属反射の計算 ---
 
-// 3. 環境マップのサンプリング
-// Roughness に応じてミップマップレベル(ぼかし)を変える
-// 鏡面(0.0)ならレベル0、粗い(1.0)ならレベル10(最大ボケ)など
-float3 envColor = EnvMap.SampleLevel(Sampler, R, Roughness * 10.0f).rgb;
+    // 1. フレネル項の計算
+    float NdotV = saturate(dot(N, V));
+    // F0項は「正面反射率」ですが、金属の場合はこれを「反射の色」への影響として扱います。
+    // ここでは単純化して、輪郭部分（Grazing Angle）だけ白っぽくなるようにします。
+    float fresnel = pow(1.0f - NdotV, 5.0f);
 
-// 4. フレネル効果 (Schlickの近似式)
-// 視線と法線の角度(NdotV)によって反射率を変化させる
-// 輪郭部分(浅い角度)ほど、反射が強くなる現象
-float NdotV = saturate(dot(N, V));
-float fresnel = F0 + (1.0f - F0) * pow(1.0f - NdotV, 5.0f);
+    // 2. ベースの反射色（金属はここで着色される）
+    float3 baseReflection = envColor * AlbedoColor;
 
-// 5. 最終カラーの合成
-// 金属: 環境マップの色に、金属自体の色(Albedo)が乗算される
-float3 finalColor = envColor * AlbedoColor;
+    // 3. 輪郭の反射色（角度がつくと、素材色に関わらず環境光そのままの色に近づく）
+    // F0パラメータを「金属っぽさの強さ」として使い、blendに利用する形に修正
+    // または、単純にSchlick近似で「白」へ遷移させます。
 
-// フレネル反射の適用
-// 輪郭部分は素材色に関わらず、環境マップの色そのものに近づく(白っぽくなる)
-finalColor = lerp(finalColor, envColor, fresnel);
+    // 修正案: 「ゴールド色の反射」に「白い輪郭反射」を合成
+    float3 finalColor = lerp(baseReflection, envColor, fresnel * (1.0 - F0));
+    // ※F0が高い(1.0)なら、全面がAlbedoColorになります。
+    // ※今回はシンプルに以下を採用してください（確実に金色になります）
 
-return float4(finalColor, 1.0f);
+    finalColor = baseReflection + (envColor * fresnel * 0.5f);
+
+    return float4(finalColor, 1.0f);
 }
